@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bluff Card Game - Multiplayer Fun",
+  title: "Potakka. - Multiplayer Fun",
   description: "Play the ultimate bluffing card game with friends online!",
 };
 

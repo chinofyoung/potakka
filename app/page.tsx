@@ -71,7 +71,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
       <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 w-full max-w-md shadow-2xl border border-white/20">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-white">🃏 Bluff Card Game</h1>
+          <h1 className="text-4xl font-bold text-white">🃏 Potakka.</h1>
           <button
             onClick={handleLogout}
             className="text-white/70 hover:text-white text-sm underline"

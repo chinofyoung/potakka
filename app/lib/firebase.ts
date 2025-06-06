@@ -40,7 +40,7 @@ export const generateRandomCard = (): Card => {
   return {
     id: Math.random().toString(36).substring(2, 15),
     name: item.name,
-    icon: item.icon,
+    iconName: item.iconName,
     arrow: Math.random() > 0.5 ? "left" : "right",
   };
 };
@@ -57,7 +57,7 @@ export const generateUniqueCards = (count: number): Card[] => {
   return shuffledItems.slice(0, count).map((item) => ({
     id: Math.random().toString(36).substring(2, 15),
     name: item.name,
-    icon: item.icon,
+    iconName: item.iconName,
     arrow: Math.random() > 0.5 ? "left" : "right",
   }));
 };
@@ -142,6 +142,200 @@ export const joinGameRoom = async (
   return room;
 };
 
+// Computer player names
+const COMPUTER_NAMES = [
+  "Bot Alice", "Bot Bob", "Bot Charlie", "Bot Diana", 
+  "Bot Eddie", "Bot Fiona", "Bot George", "Bot Helen",
+  "Bot Ivan", "Bot Julia"
+];
+
+// Add computer player to room
+export const addComputerPlayer = async (roomId: string): Promise<GameRoom> => {
+  const roomRef = doc(db, "gameRooms", roomId);
+  const roomSnap = await getDoc(roomRef);
+
+  if (!roomSnap.exists()) {
+    throw new Error("Room not found");
+  }
+
+  const room = roomSnap.data() as GameRoom;
+
+  if (Object.keys(room.players).length >= room.maxPlayers) {
+    throw new Error("Room is full");
+  }
+
+  // Find available computer name
+  const existingNames = Object.values(room.players).map(p => p.name);
+  const availableName = COMPUTER_NAMES.find(name => !existingNames.includes(name));
+  
+  if (!availableName) {
+    throw new Error("No more computer player names available");
+  }
+
+  // Create computer player
+  const computerId = `computer_${Math.random().toString(36).substring(2, 15)}`;
+  const existingPositions = Object.values(room.players).map(p => p.position || 0);
+  const nextPosition = Math.max(...existingPositions) + 1;
+
+  const computerPlayer: Player = {
+    id: computerId,
+    name: availableName,
+    cards: [],
+    isReady: true, // Computer players are always ready
+    score: 0,
+    isHost: false,
+    position: nextPosition,
+    isComputer: true,
+  };
+
+  // Add computer player to room
+  room.players[computerId] = computerPlayer;
+  await updateDoc(roomRef, { players: room.players });
+
+  // Add system message
+  const chatRef = ref(rtdb, `chat/${roomId}`);
+  await push(chatRef, {
+    id: Math.random().toString(36).substring(2, 15),
+    playerId: "system",
+    playerName: "System",
+    message: `${availableName} (Computer) joined the room`,
+    timestamp: Date.now(),
+    type: "system",
+  });
+
+  return room;
+};
+
+// Computer AI decision making
+const makeComputerDecision = (player: Player, room: GameRoom, chatMessages: ChatMessage[]): {
+  action: 'pass' | 'bluff';
+  cardToPass?: string;
+  declaration?: string;
+} => {
+  // Simple AI logic
+  if (player.cards.length === 2) {
+    // It's the computer's turn to pass a card
+    const cardToPass = player.cards[Math.floor(Math.random() * player.cards.length)];
+    
+    // Get cards currently in play for declaration options
+    const allCards: Card[] = [];
+    Object.values(room.players).forEach((p) => {
+      allCards.push(...p.cards);
+    });
+    const uniqueCardNames = [...new Set(allCards.map((card) => card.name))];
+    
+    // 70% chance to tell the truth, 30% chance to bluff
+    const shouldBluff = Math.random() < 0.3;
+    let declaration: string;
+    
+    if (shouldBluff && uniqueCardNames.length > 1) {
+      // Choose a random different card name to declare
+      const otherCards = uniqueCardNames.filter(name => name !== cardToPass.name);
+      declaration = otherCards[Math.floor(Math.random() * otherCards.length)];
+    } else {
+      // Tell the truth
+      declaration = cardToPass.name;
+    }
+    
+    return {
+      action: 'pass',
+      cardToPass: cardToPass.id,
+      declaration
+    };
+  } else {
+    // Check if the computer should call bluff
+    const lastDeclaration = chatMessages
+      .filter((msg) => msg.type === "declaration")
+      .pop();
+    
+    if (lastDeclaration && lastDeclaration.playerId !== player.id) {
+      // 25% chance to call bluff on any declaration
+      const shouldCallBluff = Math.random() < 0.25;
+      if (shouldCallBluff) {
+        return { action: 'bluff' };
+      }
+    }
+    
+    return { action: 'pass' }; // Default to not doing anything
+  }
+};
+
+// Process computer player readiness during memorizing phase
+export const processComputerReadiness = async (roomId: string): Promise<void> => {
+  const room = await getGameRoom(roomId);
+  if (!room || room.gameState !== "memorizing") return;
+  
+  // Find computer players who are not ready
+  const computerPlayers = Object.values(room.players).filter(p => p.isComputer && !p.isReady);
+  
+  for (const computer of computerPlayers) {
+    // Add a small delay to simulate "thinking" time
+    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 3000));
+    
+    try {
+      await setPlayerReady(roomId, computer.id);
+    } catch (error) {
+      console.error(`Computer ${computer.name} failed to ready up:`, error);
+    }
+  }
+};
+
+// Process computer player turns
+export const processComputerTurns = async (roomId: string): Promise<void> => {
+  const room = await getGameRoom(roomId);
+  if (!room || room.gameState !== "playing") return;
+  
+  // Get chat messages for AI decision making
+  const chatMessages = await getChatMessages(roomId);
+  
+  // Find computer players who need to make decisions
+  const computerPlayers = Object.values(room.players).filter(p => p.isComputer);
+  
+  for (const computer of computerPlayers) {
+    // Check if it's the computer's turn (has 2 cards)
+    if (computer.cards.length === 2) {
+      // Add a small delay for more natural feel
+      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+      
+      const decision = makeComputerDecision(computer, room, chatMessages);
+      
+      if (decision.action === 'pass' && decision.cardToPass && decision.declaration) {
+        try {
+          await passCard(roomId, computer.id, decision.cardToPass, decision.declaration);
+        } catch (error) {
+          console.error(`Computer ${computer.name} failed to pass card:`, error);
+        }
+      }
+    } else {
+      // Check if computer should call bluff
+      const lastDeclaration = chatMessages
+        .filter((msg) => msg.type === "declaration")
+        .pop();
+      
+      if (lastDeclaration && lastDeclaration.playerId !== computer.id) {
+        const decision = makeComputerDecision(computer, room, chatMessages);
+        
+        if (decision.action === 'bluff') {
+          // Add delay for bluff calls too
+          await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1500));
+          
+          try {
+            // Find the player who made the last declaration
+            const targetPlayer = Object.values(room.players).find(p => p.id === lastDeclaration.playerId);
+            if (targetPlayer && targetPlayer.cards.length > 0) {
+              // Get the last card passed (most recent card in target's hand)
+              const lastCard = targetPlayer.cards[0]; // Cards are added to the front when received
+              await callBluff(roomId, computer.id, targetPlayer.id, lastCard.id);
+            }
+          } catch (error) {
+            console.error(`Computer ${computer.name} failed to call bluff:`, error);
+          }
+        }
+      }
+    }
+  }
+};
+
 // Get game room
 export const getGameRoom = async (roomId: string): Promise<GameRoom | null> => {
   const roomSnap = await getDoc(doc(db, "gameRooms", roomId));
@@ -176,7 +370,8 @@ export const startGame = async (roomId: string): Promise<GameRoom> => {
   let cardIndex = 0;
   Object.values(room.players).forEach((player) => {
     player.cards = [uniqueCards[cardIndex++]];
-    player.isReady = false;
+    // Computer players stay ready, human players need to manually ready up
+    player.isReady = player.isComputer || false;
   });
 
   // Give the first player an additional card right away (visible during memorization)
@@ -334,7 +529,7 @@ export const passCard = async (
       nextPlayer.cards.push({
         id: Math.random().toString(36).substring(2, 15),
         name: randomItem.name,
-        icon: randomItem.icon,
+        iconName: randomItem.iconName,
         arrow: Math.random() > 0.5 ? "left" : "right",
       });
     }

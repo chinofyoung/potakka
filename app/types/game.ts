@@ -1,8 +1,8 @@
-import { LucideIcon } from "lucide-react";
+
 
 export interface Card {
   id: string;
-  icon: LucideIcon;
+  iconName: string; // Store icon name as string instead of component
   name: string;
   arrow: "left" | "right";
   isVisible?: boolean;
@@ -16,6 +16,7 @@ export interface Player {
   score: number;
   isHost: boolean;
   position?: number;
+  isComputer?: boolean;
 }
 
 export interface GameRoom {
@@ -89,34 +90,68 @@ import {
 } from "lucide-react";
 
 export const CARD_ITEMS = [
-  { name: "Apple", icon: Apple },
-  { name: "Car", icon: Car },
-  { name: "Book", icon: Book },
-  { name: "Phone", icon: Smartphone },
-  { name: "Cat", icon: Cat },
-  { name: "Tree", icon: TreePine },
-  { name: "House", icon: Home },
-  { name: "Guitar", icon: Guitar },
-  { name: "Pizza", icon: Pizza },
-  { name: "Camera", icon: Camera },
-  { name: "Flower", icon: Flower },
-  { name: "Clock", icon: Clock },
-  { name: "Laptop", icon: Laptop },
-  { name: "Coffee", icon: Coffee },
-  { name: "Bicycle", icon: Bike },
-  { name: "Sunglasses", icon: Glasses },
-  { name: "Shoes", icon: Shoes },
-  { name: "Watch", icon: Watch },
-  { name: "Balloon", icon: Balloon },
-  { name: "Umbrella", icon: Umbrella },
-  { name: "Candle", icon: Candle },
-  { name: "Butterfly", icon: Butterfly },
-  { name: "Keyboard", icon: Keyboard },
-  { name: "Glasses", icon: Glasses2 },
-  { name: "Hat", icon: Hat },
-  { name: "Basketball", icon: Basketball },
-  { name: "Pen", icon: Pen },
-  { name: "Dice", icon: Dice },
-  { name: "Headphones", icon: Headphones },
-  { name: "Backpack", icon: Backpack },
+  { name: "Apple", iconName: "Apple" },
+  { name: "Car", iconName: "Car" },
+  { name: "Book", iconName: "Book" },
+  { name: "Phone", iconName: "Smartphone" },
+  { name: "Cat", iconName: "Cat" },
+  { name: "Tree", iconName: "TreePine" },
+  { name: "House", iconName: "Home" },
+  { name: "Guitar", iconName: "Guitar" },
+  { name: "Pizza", iconName: "Pizza" },
+  { name: "Camera", iconName: "Camera" },
+  { name: "Flower", iconName: "Flower" },
+  { name: "Clock", iconName: "Clock" },
+  { name: "Laptop", iconName: "Laptop" },
+  { name: "Coffee", iconName: "Coffee" },
+  { name: "Bicycle", iconName: "Bike" },
+  { name: "Sunglasses", iconName: "Glasses" },
+  { name: "Shoes", iconName: "Footprints" },
+  { name: "Watch", iconName: "Watch" },
+  { name: "Balloon", iconName: "Heart" },
+  { name: "Umbrella", iconName: "Umbrella" },
+  { name: "Candle", iconName: "Flame" },
+  { name: "Butterfly", iconName: "Bug" },
+  { name: "Keyboard", iconName: "Keyboard" },
+  { name: "Glasses", iconName: "GlassesIcon" },
+  { name: "Hat", iconName: "HardHat" },
+  { name: "Basketball", iconName: "CircleDot" },
+  { name: "Pen", iconName: "Pen" },
+  { name: "Dice", iconName: "Dice1" },
+  { name: "Headphones", iconName: "Headphones" },
+  { name: "Backpack", iconName: "Backpack" },
 ];
+
+// Icon mapping for client-side resolution
+export const ICON_MAP = {
+  Apple,
+  Car,
+  Book,
+  Smartphone,
+  Cat,
+  TreePine,
+  Home,
+  Guitar,
+  Pizza,
+  Camera,
+  Flower,
+  Clock,
+  Laptop,
+  Coffee,
+  Bike,
+  Glasses,
+  Footprints: Shoes,
+  Watch,
+  Heart: Balloon,
+  Umbrella,
+  Flame: Candle,
+  Bug: Butterfly,
+  Keyboard,
+  GlassesIcon: Glasses2,
+  HardHat: Hat,
+  CircleDot: Basketball,
+  Pen,
+  Dice1: Dice,
+  Headphones,
+  Backpack,
+};

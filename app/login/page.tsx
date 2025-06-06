@@ -25,7 +25,7 @@ export default function LoginPage() {
     try {
       setError("");
       await loginWithGoogle();
-    } catch (err) {
+    } catch {
       setError("Failed to sign in with Google. Please try again.");
     }
   };
@@ -61,7 +61,7 @@ export default function LoginPage() {
           <div className="text-center">
             <div className="text-6xl mb-6">🃏</div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              Bluff Card Game
+              Potakka.
             </h1>
             <p className="text-white/70 mb-8">
               Play the ultimate bluffing card game with friends!

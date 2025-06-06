@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { GameRoom, Player, Card, ChatMessage } from "@/app/types/game";
+import { GameRoom, Player, Card, ChatMessage, ICON_MAP } from "@/app/types/game";
 import { useAuth } from "@/app/contexts/AuthContext";
 import AuthGuard from "@/app/components/AuthGuard";
 import {
@@ -15,6 +15,9 @@ import {
   addChatMessage,
   subscribeToRoom,
   subscribeToChat,
+  addComputerPlayer,
+  processComputerTurns,
+  processComputerReadiness,
 } from "@/app/lib/firebase";
 
 // Card component
@@ -24,15 +27,16 @@ function GameCard({
   isSelectable,
   isSelected,
   onClick,
-  playerName,
 }: {
   card: Card;
   isVisible: boolean;
   isSelectable?: boolean;
   isSelected?: boolean;
   onClick?: () => void;
-  playerName?: string;
 }) {
+  // Resolve icon component from iconName
+  const IconComponent = ICON_MAP[card.iconName as keyof typeof ICON_MAP];
+
   return (
     <div
       className={`relative transition-all duration-300 ${
@@ -48,7 +52,7 @@ function GameCard({
         {isVisible ? (
           <>
             <div className="w-full h-20 md:h-24 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-              <card.icon size={32} className="text-gray-700" />
+              {IconComponent && <IconComponent size={32} className="text-gray-700" />}
             </div>
             <div className="text-center p-1">
               <p className="text-xs font-bold text-gray-800 truncate">
@@ -70,11 +74,6 @@ function GameCard({
           </div>
         )}
       </div>
-      {playerName && (
-        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-white bg-black/50 px-2 py-1 rounded">
-          {playerName}
-        </div>
-      )}
     </div>
   );
 }
@@ -117,6 +116,7 @@ function PlayerPosition({
             {player.name}
           </span>
           {player.isHost && <span className="text-yellow-400">👑</span>}
+          {player.isComputer && <span className="text-blue-400">🤖</span>}
         </div>
 
         {/* Card count and turn indicator */}
@@ -148,17 +148,12 @@ function PlayerPosition({
 
       {/* Player cards */}
       <div className="flex space-x-1">
-        {cards.map((card, index) => {
-          // Show card positions and arrows more clearly
-          const cardLabel =
-            cards.length > 1 ? (index === 0 ? "L" : "R") : undefined;
-
+        {cards.map((card) => {
           return (
             <div key={card.id} className="flex flex-col items-center">
               <GameCard
                 card={card}
                 isVisible={canSeeCards}
-                playerName={cardLabel}
               />
               {/* Show arrow under each card when visible */}
               {canSeeCards && (
@@ -265,6 +260,27 @@ function GamePageContent() {
     }
   }, [chatMessages]);
 
+  // Process computer player actions when room state changes
+  useEffect(() => {
+    if (room) {
+      if (room.gameState === "memorizing") {
+        // Handle computer readiness during memorizing phase
+        const timer = setTimeout(() => {
+          processComputerReadiness(roomId).catch(console.error);
+        }, 1000);
+        
+        return () => clearTimeout(timer);
+      } else if (room.gameState === "playing") {
+        // Handle computer turns during playing phase
+        const timer = setTimeout(() => {
+          processComputerTurns(roomId).catch(console.error);
+        }, 1000);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [room, roomId]);
+
   const currentPlayer = room?.players[playerId];
   const isMyTurn =
     currentPlayer?.cards.length === 2 && room?.gameState === "playing";
@@ -308,6 +324,14 @@ function GamePageContent() {
       await startGame(roomId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start game");
+    }
+  };
+
+  const handleAddComputerPlayer = async () => {
+    try {
+      await addComputerPlayer(roomId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add computer player");
     }
   };
 
@@ -476,13 +500,23 @@ function GamePageContent() {
                 Players: {Object.keys(room.players).length}/{room.maxPlayers}
               </p>
               {room.gameState === "waiting" && currentPlayer?.isHost && (
-                <button
-                  onClick={handleStartGame}
-                  disabled={Object.keys(room.players).length < room.minPlayers}
-                  className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white font-bold py-2 px-4 rounded mt-2"
-                >
-                  Start Game
-                </button>
+                <div className="flex flex-col space-y-2 mt-2">
+                  {Object.keys(room.players).length < room.maxPlayers && (
+                    <button
+                      onClick={handleAddComputerPlayer}
+                      className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded text-sm"
+                    >
+                      🤖 Add Computer Player
+                    </button>
+                  )}
+                  <button
+                    onClick={handleStartGame}
+                    disabled={Object.keys(room.players).length < room.minPlayers}
+                    className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white font-bold py-2 px-4 rounded"
+                  >
+                    Start Game
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -530,7 +564,7 @@ function GamePageContent() {
             {/* Game Status Bar */}
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 mb-4 border border-white/20">
               <div className="text-center text-white">
-                <div className="text-2xl mb-2">🃏 Bluff Card Game</div>
+                <div className="text-2xl mb-2">🃏 Potakka.</div>
                 <p className="text-sm opacity-70 mb-2">
                   Round {room.currentRound + 1}
                 </p>
@@ -647,7 +681,7 @@ function GamePageContent() {
                   </div>
                 </h3>
                 <div className="flex justify-center space-x-4 mb-4">
-                  {currentPlayer.cards.map((card, index) => {
+                  {currentPlayer.cards.map((card) => {
                     return (
                       <div key={card.id} className="flex flex-col items-center">
                         <div
@@ -898,6 +932,9 @@ function GamePageContent() {
                       <span className="flex items-center">
                         {player.isHost && (
                           <span className="text-yellow-400 mr-1">👑</span>
+                        )}
+                        {player.isComputer && (
+                          <span className="text-blue-400 mr-1">🤖</span>
                         )}
                         {player.name}
                         {player.id === playerId && (
