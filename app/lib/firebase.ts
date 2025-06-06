@@ -40,7 +40,7 @@ export const generateRandomCard = (): Card => {
   return {
     id: Math.random().toString(36).substring(2, 15),
     name: item.name,
-    image: item.image,
+    icon: item.icon,
     arrow: Math.random() > 0.5 ? "left" : "right",
   };
 };
@@ -57,7 +57,7 @@ export const generateUniqueCards = (count: number): Card[] => {
   return shuffledItems.slice(0, count).map((item) => ({
     id: Math.random().toString(36).substring(2, 15),
     name: item.name,
-    image: item.image,
+    icon: item.icon,
     arrow: Math.random() > 0.5 ? "left" : "right",
   }));
 };
@@ -334,7 +334,7 @@ export const passCard = async (
       nextPlayer.cards.push({
         id: Math.random().toString(36).substring(2, 15),
         name: randomItem.name,
-        image: randomItem.image,
+        icon: randomItem.icon,
         arrow: Math.random() > 0.5 ? "left" : "right",
       });
     }

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import Image from "next/image";
 import { GameRoom, Player, Card, ChatMessage } from "@/app/types/game";
+import { useAuth } from "@/app/contexts/AuthContext";
+import AuthGuard from "@/app/components/AuthGuard";
 import {
   createGameRoom,
   joinGameRoom,
@@ -46,13 +47,9 @@ function GameCard({
       <div className="w-20 h-28 md:w-24 md:h-32 bg-white rounded-lg shadow-lg overflow-hidden">
         {isVisible ? (
           <>
-            <Image
-              src={card.image}
-              alt={card.name}
-              width={100}
-              height={120}
-              className="w-full h-20 md:h-24 object-cover"
-            />
+            <div className="w-full h-20 md:h-24 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+              <card.icon size={32} className="text-gray-700" />
+            </div>
             <div className="text-center p-1">
               <p className="text-xs font-bold text-gray-800 truncate">
                 {card.name}
@@ -182,13 +179,14 @@ function PlayerPosition({
   );
 }
 
-export default function GamePage() {
+function GamePageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useAuth();
 
   const roomId = params.roomId as string;
-  const playerName = searchParams.get("name") || "";
+  const playerName = user?.gamerTag || searchParams.get("name") || "";
   const isHost = searchParams.get("host") === "true";
 
   const [room, setRoom] = useState<GameRoom | null>(null);
@@ -915,5 +913,13 @@ export default function GamePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function GamePage() {
+  return (
+    <AuthGuard>
+      <GamePageContent />
+    </AuthGuard>
   );
 }
